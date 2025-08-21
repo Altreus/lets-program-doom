@@ -88,7 +88,7 @@ fn main() {
 fn move_player(p: &PlayerMovement) {
     match &p.movement {
         None => {}
-        Some(x) => { print!("{:?}", x) }
+        Some(x) => { println!("{:?}", x) }
     }
 }
 
@@ -172,16 +172,16 @@ fn on_key_up(p: &mut PlayerMovement, k: Keycode) {
         },
         Keycode::A => {
             match p.movement {
-                Some(MovementDirection::ForwardLeft) => p.movement = Some(MovementDirection::Left),
-                Some(MovementDirection::BackwardLeft) => p.movement = Some(MovementDirection::Left),
-                None => p.movement = Some(MovementDirection::Left),
+                Some(MovementDirection::ForwardLeft) => p.movement = Some(MovementDirection::Forward),
+                Some(MovementDirection::BackwardLeft) => p.movement = Some(MovementDirection::Backward),
+                Some(MovementDirection::Left) => p.movement = None,
                 _ => {},
             }
         },
         Keycode::D => {
             match p.movement {
-                Some(MovementDirection::ForwardRight) => p.movement = Some(MovementDirection::Right),
-                Some(MovementDirection::BackwardRight) => p.movement = Some(MovementDirection::Right),
+                Some(MovementDirection::ForwardRight) => p.movement = Some(MovementDirection::Forward),
+                Some(MovementDirection::BackwardRight) => p.movement = Some(MovementDirection::Backward),
                 Some(MovementDirection::Right) => p.movement = None,
                 _ => {},
             }
