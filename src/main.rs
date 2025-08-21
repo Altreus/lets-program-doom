@@ -1,13 +1,15 @@
 extern crate sdl2;
 
+use sdl2::rect::Point;
 use sdl2::pixels::Color;
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
-const SCREEN_WIDTH: i32 = 160;
-const SCREEN_HEIGHT: i32 = 120;
-const PIXEL_SCALE: i32 = 4;
+const SCREEN_WIDTH: u32 = 160;
+const SCREEN_HEIGHT: u32 = 120;
+const PIXEL_SCALE: u32 = 4;
+const FRAME_RATE: u32 = 20;
 
 // TODO: This could be an analogue angle but we're not doing that for
 // this toy project.
@@ -43,14 +45,17 @@ fn main() {
 
     let window = video_subsystem
         .window("Game",
-            (SCREEN_WIDTH * PIXEL_SCALE) as u32,
-            (SCREEN_HEIGHT * PIXEL_SCALE) as u32)
+            (SCREEN_WIDTH * PIXEL_SCALE),
+            (SCREEN_HEIGHT * PIXEL_SCALE))
         .position_centered()
         .build()
         .unwrap();
 
     let mut canvas = window.into_canvas().build().unwrap();
-    canvas.set_draw_color(Color::RGB(0, 255, 255));
+    canvas.set_logical_size(SCREEN_WIDTH, SCREEN_HEIGHT).expect("Failed to set logical size");
+    canvas.set_scale(PIXEL_SCALE as _, PIXEL_SCALE as _).expect("Failed to set scale");
+    canvas.set_integer_scale(true).expect("Failed to set integer scale");
+    canvas.set_draw_color(Color::WHITE);
     canvas.clear();
     canvas.present();
 
@@ -58,6 +63,7 @@ fn main() {
     let mut player_movement : PlayerMovement = Default::default();
 
     let mut event_pump = sdl.event_pump().unwrap();
+    let mut lastframe = Instant::now();
     'main: loop {
         for event in event_pump.poll_iter() {
             match event {
@@ -69,9 +75,13 @@ fn main() {
         }
 
         move_player(&player_movement);
-        draw_stuff(&mut canvas);
+        // Draw frame_rate times per second
+        if lastframe.elapsed().as_millis() >= 1000 / FRAME_RATE as u128 {
+            draw_stuff(&mut canvas);
 
-        canvas.present();
+            canvas.present();
+            lastframe = Instant::now();
+        }
     }
 }
 
@@ -83,6 +93,13 @@ fn move_player(p: &PlayerMovement) {
 }
 
 fn draw_stuff(canvas: &mut sdl2::render::WindowCanvas) {
+    canvas.set_draw_color(Color::WHITE);
+    canvas.clear();
+}
+
+fn draw_pixel(canvas: &mut sdl2::render::WindowCanvas, p: Point, c: Color) {
+    canvas.set_draw_color(c);
+    canvas.draw_point(p).expect("Error drawing pixel :(");
 }
 
 fn on_key_down(p: &mut PlayerMovement, k: Keycode) {
@@ -174,7 +191,4 @@ fn on_key_up(p: &mut PlayerMovement, k: Keycode) {
         Keycode::RIGHT if !p.rotation.is_some() => p.rotation = Some(Rotation::Right),
         _ => {}
     }
-}
-
-fn _set_player_movement(p: &mut PlayerMovement, k: Keycode, on: bool) {
 }
