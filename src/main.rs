@@ -10,6 +10,7 @@ const SCREEN_WIDTH: u32 = 160;
 const SCREEN_HEIGHT: u32 = 120;
 const PIXEL_SCALE: u32 = 4;
 const FRAME_RATE: u32 = 20;
+const MS_PER_FRAME: u32 = 1000 / FRAME_RATE;
 
 // TODO: This could be an analogue angle but we're not doing that for
 // this toy project.
@@ -45,8 +46,8 @@ fn main() {
 
     let window = video_subsystem
         .window("Game",
-            (SCREEN_WIDTH * PIXEL_SCALE),
-            (SCREEN_HEIGHT * PIXEL_SCALE))
+            SCREEN_WIDTH * PIXEL_SCALE,
+            SCREEN_HEIGHT * PIXEL_SCALE)
         .position_centered()
         .build()
         .unwrap();
@@ -76,7 +77,7 @@ fn main() {
 
         move_player(&player_movement);
         // Draw frame_rate times per second
-        if lastframe.elapsed().as_millis() >= 1000 / FRAME_RATE as u128 {
+        if lastframe.elapsed().as_millis() >= MS_PER_FRAME as u128 {
             draw_stuff(&mut canvas);
 
             canvas.present();
@@ -95,6 +96,17 @@ fn move_player(p: &PlayerMovement) {
 fn draw_stuff(canvas: &mut sdl2::render::WindowCanvas) {
     canvas.set_draw_color(Color::WHITE);
     canvas.clear();
+
+    for x in 0 .. (SCREEN_WIDTH / 2) - 1 {
+        for y in 0 .. (SCREEN_HEIGHT / 2) - 1 {
+            let x_pc : f32 = x as f32 / (SCREEN_WIDTH as f32 / 2.0);
+            let y_pc : f32 = y as f32 / (SCREEN_HEIGHT as f32 / 2.0);
+
+            draw_pixel(canvas, Point::new(x as _,y as _), Color::RGB(
+                (255.0 * x_pc) as _, (255.0 * y_pc) as _, (255.0 * x_pc * y_pc ) as _ )
+            );
+        }
+    }
 }
 
 fn draw_pixel(canvas: &mut sdl2::render::WindowCanvas, p: Point, c: Color) {
