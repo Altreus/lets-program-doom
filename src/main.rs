@@ -188,8 +188,9 @@ fn draw_stuff(canvas: &mut sdl2::render::WindowCanvas, player: &Player) {
         );
         println!("After translation {:?}", point_to_draw);
 
-        point_to_draw.x = point_to_draw.x * player.angle.cos() - point_to_draw.z * player.angle.sin();
-        point_to_draw.z = point_to_draw.z * player.angle.cos() + point_to_draw.x * player.angle.sin();
+        let newx = point_to_draw.x * player.angle.cos() - point_to_draw.z * player.angle.sin();
+        let newz = point_to_draw.z * player.angle.cos() + point_to_draw.x * player.angle.sin();
+        point_to_draw.x = newx; point_to_draw.z = newz;
         println!("After rotation {:?}", point_to_draw);
 
         if point_to_draw.z <= 0.0 { return }
