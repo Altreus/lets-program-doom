@@ -149,9 +149,6 @@ fn move_player(p: &mut Player) {
     let dx = (p.angle.sin() * 10.0) as i32;
     let dz = (p.angle.cos() * 10.0) as i32;
 
-    println!("Player angle and x/z movement deltas: {:?} {:?} {:?}",
-        p.angle.to_degrees(), dx, dz);
-    println!("Player location before move: {:?}", p.location);
     match &p.movement.movement {
         None => {}
         Some(x) => { match x {
@@ -171,7 +168,6 @@ fn move_player(p: &mut Player) {
             //MovementDirection::ForwardLeft
         }}
     }
-    println!("Player location after move: {:?}", p.location);
 }
 
 fn draw_stuff(canvas: &mut WindowCanvas, player: &Player) {
@@ -221,17 +217,26 @@ fn draw_wall(canvas: &mut WindowCanvas, player: &Player, wall: Wall, c: Color) {
     let screen_point_1 = point3_to_point2( &wall.line[0], player );
     let screen_point_2 = point3_to_point2( &wall.line[1], player );
 
+    let top_point_1 = Point3::new( wall.line[0].x, wall.line[0].y + wall.height, wall.line[0].z);
+    let top_point_2 = Point3::new( wall.line[1].x, wall.line[1].y + wall.height, wall.line[1].z);
+    let screen_point_3 = point3_to_point2( &top_point_1, player );
+    let screen_point_4 = point3_to_point2( &top_point_2, player );
+
+
     let dx = screen_point_1.x - screen_point_2.x;
-    let dy = screen_point_1.y - screen_point_2.y;
+    let dy_bot = screen_point_1.y - screen_point_2.y;
+    let dy_top = screen_point_3.y - screen_point_4.y; // top dx is the same
 
 
     for xval in screen_point_1.x .. screen_point_2.x {
         // xval - wall.line[0].x / dx normalises xval so needs to be a float
         // multiply that by dy and we get a normalised y value proportional to x
         // make that an int and add the actual y value of the first point
-        let yval = ((dy * ( xval - screen_point_1.x ) ) as f64 / dx as f64 ) as i32 + screen_point_1.y;
+        let yval_bot = ((dy_bot * ( xval - screen_point_1.x ) ) as f64 / dx as f64 ) as i32 + screen_point_1.y;
+        let yval_top = ((dy_top * ( xval - screen_point_1.x ) ) as f64 / dx as f64 ) as i32 + screen_point_3.y;
 
-        draw_pixel( canvas, Point::new(xval, yval), c );
+        draw_pixel( canvas, Point::new(xval, yval_bot), c );
+        draw_pixel( canvas, Point::new(xval, yval_top), c );
     }
 }
 
@@ -241,14 +246,10 @@ fn point3_to_point2(p3: &Point3, player: &Player) -> Point {
         (p3.y - player.location.y) as _,
         (p3.z - player.location.z) as _
     );
-    println!("Translated point {:?} to {:?} via {:?}", p3, translated_point, player.location);
 
     let newx = translated_point.x * player.angle.cos() - translated_point.z * player.angle.sin();
     let newz = translated_point.z * player.angle.cos() + translated_point.x * player.angle.sin();
     translated_point.x = newx; translated_point.z = newz;
-
-    println!("Rotated point through {:?} radians ({:?} degrees) to {:?}",
-        player.angle, player.angle.to_degrees(), translated_point);
 
     // FIXME: We can't just return None here and make this an Option function
     // because we still need to interpolate between two points. For now we
