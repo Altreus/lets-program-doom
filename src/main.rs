@@ -235,8 +235,10 @@ fn draw_wall(canvas: &mut WindowCanvas, player: &Player, wall: Wall, c: Color) {
         let yval_bot = ((dy_bot * ( xval - screen_point_1.x ) ) as f64 / dx as f64 ) as i32 + screen_point_1.y;
         let yval_top = ((dy_top * ( xval - screen_point_1.x ) ) as f64 / dx as f64 ) as i32 + screen_point_3.y;
 
-        draw_pixel( canvas, Point::new(xval, yval_bot), c );
-        draw_pixel( canvas, Point::new(xval, yval_top), c );
+        // Remember +Y is down so top < bot
+        for yval in yval_top .. yval_bot {
+            draw_pixel( canvas, Point::new(xval, yval), c );
+        }
     }
 }
 
