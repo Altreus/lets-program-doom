@@ -194,10 +194,12 @@ fn draw_stuff(canvas: &mut sdl2::render::WindowCanvas, player: &Player) {
 
         if point_to_draw.z <= 0.0 { return }
 
+        // Invert the Y coordinate. World coordinates have +Y is up, but
+        // screen coordinates have +Y is down. That'll flip the world, so
+        // flip it back
         let pixel = Point::new(
             ((point_to_draw.x / point_to_draw.z * FIELD_OF_VIEW as f64) + (SCREEN_WIDTH as f64 / 2.0)) as i32,
-            // I think 0,0 turned out to be the top left as we expect.
-            ((point_to_draw.y / point_to_draw.z * FIELD_OF_VIEW as f64) + (SCREEN_HEIGHT as f64 / 2.0)) as i32,
+            ((-point_to_draw.y / point_to_draw.z * FIELD_OF_VIEW as f64) + (SCREEN_HEIGHT as f64 / 2.0)) as i32,
         );
         println!("After projection {:?}", pixel);
         draw_pixel( canvas, pixel, Color::YELLOW );
