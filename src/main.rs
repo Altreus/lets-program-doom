@@ -75,7 +75,7 @@ struct Player {
 // In Doom, all points in the map are integers, so we don't need to use
 // FPoint3 to define a wall; only to avoid losing precision while rendering it
 struct Wall {
-    pub line: (Point3, Point3),
+    pub line: [Point3;2],
     pub height: i32
 }
 
@@ -175,39 +175,33 @@ fn draw_stuff(canvas: &mut sdl2::render::WindowCanvas, player: &Player) {
     // line and later add the height.
 
     let wall = Wall {
-        line: ( Point3::new(0, 0, 50), Point3::new(50, 0, 50) ),
+        line: [ Point3::new(0, 0, 50), Point3::new(50, 0, 50) ],
         height: 40
     };
 
-    println!("Wall's zeroth point is {:?}", wall.line.0);
-    // We'll draw just the first point of the wall's line to begin with
-    // First we'll take a copy of the point and adjust it by the position
-    // of the player. TODO: We can implement maths on the struct
-    // First we translate the point by the player's location
-    let mut point_to_draw = FPoint3::new(
-        (wall.line.0.x - player.location.x) as _,
-        (wall.line.0.y - player.location.y) as _,
-        (wall.line.0.z - player.location.z) as _
-    );
-    println!("After translation {:?}", point_to_draw);
-    // Now the player is at 0,0,0 we can rotate the world by their angle
-    point_to_draw.x = point_to_draw.x * player.angle.cos() - point_to_draw.z * player.angle.sin();
-    point_to_draw.z = point_to_draw.z * player.angle.cos() + point_to_draw.x * player.angle.sin();
-    println!("After rotation {:?}", point_to_draw);
+    for point in wall.line {
+        println!("Point is {:?}", point);
+        let mut point_to_draw = FPoint3::new(
+            (point.x - player.location.x) as _,
+            (point.y - player.location.y) as _,
+            (point.z - player.location.z) as _
+        );
+        println!("After translation {:?}", point_to_draw);
 
-    if point_to_draw.z <= 0.0 { return }
+        point_to_draw.x = point_to_draw.x * player.angle.cos() - point_to_draw.z * player.angle.sin();
+        point_to_draw.z = point_to_draw.z * player.angle.cos() + point_to_draw.x * player.angle.sin();
+        println!("After rotation {:?}", point_to_draw);
 
-    // The pixel to draw is brought into the centre of the screen based on the
-    // distance, which is its Z value after these transformations. In the video
-    // he simply divides the 2D coordinates by the depth coordinate, and then
-    // multiplies by some arbitrary field of view value.
-    let pixel = Point::new(
-        ((point_to_draw.x / point_to_draw.z * FIELD_OF_VIEW as f64) + (SCREEN_WIDTH as f64 / 2.0)) as i32,
-        // I think 0,0 turned out to be the top left as we expect.
-        ((point_to_draw.y / point_to_draw.z * FIELD_OF_VIEW as f64) + (SCREEN_HEIGHT as f64 / 2.0)) as i32,
-    );
-    println!("After projection {:?}", pixel);
-    draw_pixel( canvas, pixel, Color::YELLOW );
+        if point_to_draw.z <= 0.0 { return }
+
+        let pixel = Point::new(
+            ((point_to_draw.x / point_to_draw.z * FIELD_OF_VIEW as f64) + (SCREEN_WIDTH as f64 / 2.0)) as i32,
+            // I think 0,0 turned out to be the top left as we expect.
+            ((point_to_draw.y / point_to_draw.z * FIELD_OF_VIEW as f64) + (SCREEN_HEIGHT as f64 / 2.0)) as i32,
+        );
+        println!("After projection {:?}", pixel);
+        draw_pixel( canvas, pixel, Color::YELLOW );
+    }
     // for x in 0 .. (SCREEN_WIDTH / 2) - 1 {
     //     for y in 0 .. (SCREEN_HEIGHT / 2) - 1 {
     //         let x_pc : f32 = x as f32 / (SCREEN_WIDTH as f32 / 2.0);
