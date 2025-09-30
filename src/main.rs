@@ -1,7 +1,7 @@
 extern crate sdl2;
 
 use std::f64::consts::TAU;
-use sdl2::rect::Point;
+use sdl2::rect::{Point, FPoint};
 use sdl2::render::WindowCanvas;
 use sdl2::pixels::Color;
 use sdl2::event::Event;
@@ -47,19 +47,6 @@ impl Point3 {
     }
 }
 
-#[derive(Default, Debug)]
-struct FPoint3 {
-    pub x: f64,
-    pub y: f64,
-    pub z: f64
-}
-
-impl FPoint3 {
-    fn new(x: f64, y: f64, z: f64) -> FPoint3 {
-        FPoint3{ x,y,z }
-    }
-}
-
 #[derive(Default)]
 struct PlayerMovement {
     pub movement: Option<MovementDirection>,
@@ -84,6 +71,19 @@ struct Wall {
     pub floor: i32,
     // height is relative to floor
     pub height: i32
+}
+
+impl Wall {
+    fn transformed(&self, player: &Player ) -> Wall {
+        return Wall {
+            line: [
+                point2_transformed( &self.line[0], player),
+                point2_transformed( &self.line[1], player),
+            ],
+            floor: self.floor - player.location.y,
+            height: self.height,
+        };
+    }
 }
 
 fn main() {
@@ -185,12 +185,12 @@ fn draw_stuff(canvas: &mut WindowCanvas, player: &Player) {
     // line and later add the height.
 
     let wall = Wall {
-        line: [ Point::new(-10, 50), Point::new(10, 50) ],
+        line: [ Point::new(-40, 50), Point::new(40, 50) ],
         floor: 0,
         height: 40
     };
 
-    draw_wall( canvas, player, wall, Color::YELLOW );
+    draw_wall( canvas, wall.transformed(player), Color::YELLOW );
 
     // for x in 0 .. (SCREEN_WIDTH / 2) - 1 {
     //     for y in 0 .. (SCREEN_HEIGHT / 2) - 1 {
@@ -205,8 +205,8 @@ fn draw_stuff(canvas: &mut WindowCanvas, player: &Player) {
 }
 
 // Eventually the wall will know its colour, which will of course be a texture
-// Eventually the player wil be the whole game state.
-fn draw_wall(canvas: &mut WindowCanvas, player: &Player, wall: Wall, c: Color) {
+// The function takes a transformed wall, so the player is at 0,0,0.
+fn draw_wall(canvas: &mut WindowCanvas, wall: Wall, c: Color) {
     // In the video the drawWall function iterates over the SCREEN values of
     // the wall that he computes in the draw function. Maybe he tidies this up
     // later but why would you write code you need to tidy up? The function is
@@ -220,16 +220,16 @@ fn draw_wall(canvas: &mut WindowCanvas, player: &Player, wall: Wall, c: Color) {
 
     let bot_point_1 = Point3::new( wall.line[0].x, wall.floor, wall.line[0].y);
     let bot_point_2 = Point3::new( wall.line[1].x, wall.floor, wall.line[1].y);
-    let screen_bot_1 = point3_to_point2( &bot_point_1, player );
-    let screen_bot_2 = point3_to_point2( &bot_point_2, player );
+    let screen_bot_1 = point3_to_point2( &bot_point_1 );
+    let screen_bot_2 = point3_to_point2( &bot_point_2 );
 
     // Another way to do this would be to compute the Y offset of the wall
     // height inside the loop at each X value, since we don't ever actually
     // use the X values of these two points.
     let top_point_1 = Point3::new( wall.line[0].x, wall.floor + wall.height, wall.line[0].y);
     let top_point_2 = Point3::new( wall.line[1].x, wall.floor + wall.height, wall.line[1].y);
-    let screen_top_1 = point3_to_point2( &top_point_1, player );
-    let screen_top_2 = point3_to_point2( &top_point_2, player );
+    let screen_top_1 = point3_to_point2( &top_point_1 );
+    let screen_top_2 = point3_to_point2( &top_point_2 );
 
 
     // This is where we use the X values of the bottom points but not the
@@ -256,28 +256,34 @@ fn draw_wall(canvas: &mut WindowCanvas, player: &Player, wall: Wall, c: Color) {
     }
 }
 
-fn point3_to_point2(p3: &Point3, player: &Player) -> Point {
-    let mut translated_point = FPoint3::new(
-        (p3.x - player.location.x) as _,
-        (p3.y - player.location.y) as _,
-        (p3.z - player.location.z) as _
+fn point2_transformed(p2: &Point, player: &Player) -> Point {
+    // We translate the point by using its XY coordinates as being the ground
+    // plane of the world, and thus the Y point of the coordinate is the Z
+    // axis in the world. So we use the player's Z to transform the Y
+    let mut translated_point = FPoint::new(
+        (p2.x - player.location.x) as _,
+        (p2.y - player.location.z) as _
     );
 
-    let newx = translated_point.x * player.angle.cos() - translated_point.z * player.angle.sin();
-    let newz = translated_point.z * player.angle.cos() + translated_point.x * player.angle.sin();
-    translated_point.x = newx; translated_point.z = newz;
+    let newx = translated_point.x as f32 * player.angle.cos() as f32
+             - translated_point.y as f32 * player.angle.sin() as f32;
+    let newy = translated_point.y as f32 * player.angle.cos() as f32
+             + translated_point.x as f32 * player.angle.sin() as f32;
+    translated_point.x = newx; translated_point.y = newy;
 
     // FIXME: We can't just return None here and make this an Option function
     // because we still need to interpolate between two points. For now we
-    // fudge the Z value so there's no DIV0 error and come back to clipping
+    // fudge the Y value so there's no DIV0 error and come back to clipping
     // later
-    if translated_point.z == 0.0 { translated_point.z = 0.1 }
-    // Invert the Y coordinate. World coordinates have +Y is up, but
-    // screen coordinates have +Y is down. That'll flip the world, so
-    // flip it back
+    if translated_point.y == 0.0 { translated_point.y = 0.1 }
+
+    return Point::new( translated_point.x as _, translated_point.y as _ );
+}
+
+fn point3_to_point2(p3: &Point3) -> Point {
     let pixel = Point::new(
-        ((translated_point.x / translated_point.z * FIELD_OF_VIEW as f64) + (SCREEN_WIDTH as f64 / 2.0)) as i32,
-        ((-translated_point.y / translated_point.z * FIELD_OF_VIEW as f64) + (SCREEN_HEIGHT as f64 / 2.0)) as i32,
+        ((p3.x as f64 / p3.z as f64 * FIELD_OF_VIEW as f64) + (SCREEN_WIDTH as f64 / 2.0)) as i32,
+        ((-p3.y as f64 / p3.z as f64 * FIELD_OF_VIEW as f64) + (SCREEN_HEIGHT as f64 / 2.0)) as i32,
     );
 
     return pixel;
