@@ -76,10 +76,13 @@ struct Player {
 // In Doom, all points in the map are integers, so we don't need to use
 // FPoint3 to define a wall; only to avoid losing precision while rendering it
 struct Wall {
-    // FIXME: The Y value of both points must be the same, so we shouldn't
-    // use Point3 at all, here. We should use Point2 and remember the local Y
-    // represents world Z
-    pub line: [Point3;2],
+    // The XY of the point is actually the XZ of the world. The Y value of
+    // the world is simply the floor value, and the upper line is defined by
+    // the height.
+    pub line: [Point;2],
+    // floor is an absolute unit
+    pub floor: i32,
+    // height is relative to floor
     pub height: i32
 }
 
@@ -182,7 +185,8 @@ fn draw_stuff(canvas: &mut WindowCanvas, player: &Player) {
     // line and later add the height.
 
     let wall = Wall {
-        line: [ Point3::new(-10, 0, 50), Point3::new(10, 0, 50) ],
+        line: [ Point::new(-10, 50), Point::new(10, 50) ],
+        floor: 0,
         height: 40
     };
 
@@ -209,31 +213,41 @@ fn draw_wall(canvas: &mut WindowCanvas, player: &Player, wall: Wall, c: Color) {
     // called drawWall so it should accept wall coordinates, which is what this
     // function does.
     //
-    // So we're going to take the two base coordinates of the wall and convert
-    // them to screen coordinates, and then draw all the pixels between them.
-    // We can use the basic line formula to do this by normalising the X and
-    // Y deltas of the line (we're in screen coordinates now).
+    // We convert the floor line (which is what's in the struct) into 2 screen
+    // coordinates, and a second virtual line adjusted in the Y by the wall's
+    // height into 2 more screen coordinates. Then we iterate over the X values
+    // between the floor points and draw up to the corresponding top point.
 
-    let screen_point_1 = point3_to_point2( &wall.line[0], player );
-    let screen_point_2 = point3_to_point2( &wall.line[1], player );
+    let bot_point_1 = Point3::new( wall.line[0].x, wall.floor, wall.line[0].y);
+    let bot_point_2 = Point3::new( wall.line[1].x, wall.floor, wall.line[1].y);
+    let screen_bot_1 = point3_to_point2( &bot_point_1, player );
+    let screen_bot_2 = point3_to_point2( &bot_point_2, player );
 
-    let top_point_1 = Point3::new( wall.line[0].x, wall.line[0].y + wall.height, wall.line[0].z);
-    let top_point_2 = Point3::new( wall.line[1].x, wall.line[1].y + wall.height, wall.line[1].z);
-    let screen_point_3 = point3_to_point2( &top_point_1, player );
-    let screen_point_4 = point3_to_point2( &top_point_2, player );
+    // Another way to do this would be to compute the Y offset of the wall
+    // height inside the loop at each X value, since we don't ever actually
+    // use the X values of these two points.
+    let top_point_1 = Point3::new( wall.line[0].x, wall.floor + wall.height, wall.line[0].y);
+    let top_point_2 = Point3::new( wall.line[1].x, wall.floor + wall.height, wall.line[1].y);
+    let screen_top_1 = point3_to_point2( &top_point_1, player );
+    let screen_top_2 = point3_to_point2( &top_point_2, player );
 
 
-    let dx = screen_point_1.x - screen_point_2.x;
-    let dy_bot = screen_point_1.y - screen_point_2.y;
-    let dy_top = screen_point_3.y - screen_point_4.y; // top dx is the same
+    // This is where we use the X values of the bottom points but not the
+    // top points, because when we're drawing the wall we just draw vertical
+    // lines from each X point
+    let dx = screen_bot_1.x - screen_bot_2.x;
+    let dy_bot = screen_bot_1.y - screen_bot_2.y;
+    let dy_top = screen_top_1.y - screen_top_2.y; // top dx is the same
 
+    // Actually we only use screen_top_2 once as well, to get a delta Y, so
+    // maybe we can get away with just creating two Y values
 
-    for xval in screen_point_1.x .. screen_point_2.x {
+    for xval in screen_bot_1.x .. screen_bot_2.x {
         // xval - wall.line[0].x / dx normalises xval so needs to be a float
         // multiply that by dy and we get a normalised y value proportional to x
         // make that an int and add the actual y value of the first point
-        let yval_bot = ((dy_bot * ( xval - screen_point_1.x ) ) as f64 / dx as f64 ) as i32 + screen_point_1.y;
-        let yval_top = ((dy_top * ( xval - screen_point_1.x ) ) as f64 / dx as f64 ) as i32 + screen_point_3.y;
+        let yval_bot = ((dy_bot * ( xval - screen_bot_1.x ) ) as f64 / dx as f64 ) as i32 + screen_bot_1.y;
+        let yval_top = ((dy_top * ( xval - screen_bot_1.x ) ) as f64 / dx as f64 ) as i32 + screen_top_1.y;
 
         // Remember +Y is down so top < bot
         for yval in yval_top .. yval_bot {
