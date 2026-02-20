@@ -45,6 +45,10 @@ impl Point3 {
     fn new(x: i32, y: i32, z: i32) -> Point3 {
         Point3{ x,y,z }
     }
+
+    fn clone(p3: &Point3) -> Point3 {
+        Point3{ x: p3.x, y: p3.y, z: p3.z }
+    }
 }
 
 #[derive(Default)]
@@ -218,8 +222,13 @@ fn draw_wall(canvas: &mut WindowCanvas, wall: Wall, c: Color) {
     // height into 2 more screen coordinates. Then we iterate over the X values
     // between the floor points and draw up to the corresponding top point.
 
-    let bot_point_1 = Point3::new( wall.line[0].x, wall.floor, wall.line[0].y);
-    let bot_point_2 = Point3::new( wall.line[1].x, wall.floor, wall.line[1].y);
+    let line_in_view = match truncate_z( &wall.line ) {
+        Some(x) => x,
+        None    => return
+    };
+
+    let bot_point_1 = Point3::new( line_in_view[0].x, wall.floor, line_in_view[0].y);
+    let bot_point_2 = Point3::new( line_in_view[1].x, wall.floor, line_in_view[1].y);
     let screen_bot_1 = point3_to_point2( &bot_point_1 );
     let screen_bot_2 = point3_to_point2( &bot_point_2 );
 
@@ -287,6 +296,39 @@ fn point3_to_point2(p3: &Point3) -> Point {
     );
 
     return pixel;
+}
+
+fn truncate_z(line: &[Point;2]) -> Option<[Point;2]> {
+    let mut new_line = [line[0].clone(), line[1].clone()];
+    // Remember that the Y coordinate of the line is the Z coordinate of the
+    // world; and this line comes to us pre-translated, so +Z in the world is
+    // +Y in the line
+
+    // Completely behind us
+    if line[0].y < 1 && line[1].y < 1 { return None }
+
+    // The proportion of the line that's behind us based on the Y coordinate
+    // can be directly applied to the X coordinate range to chop that bit off.
+    // We'll use 1 instead of 0 to avoid div0.
+    // If the line is entirely in front of us, just use it.
+    if line[0].y > 1 && line[1].y > 1 { return Some(new_line) }
+
+    // If line[1] is actually behind us (because we turned 180°) then swap
+    // new_line around, work on it, then swap it back.
+    if line[1].y < 1 {
+        new_line = [new_line[1], new_line[0]];
+    }
+    let line_length = new_line[1].y - new_line[0].y;
+    let player_proportion = line_length as f32 / (1 - new_line[0].y) as f32;
+
+    new_line[0].y = 1;
+    new_line[0].x = (new_line[0].x as f32 * player_proportion) as _;
+
+    if line[1].y < 1 {
+        new_line = [new_line[1], new_line[0]];
+    }
+
+    return Some(new_line);
 }
 
 fn draw_pixel(canvas: &mut WindowCanvas, p: Point, c: Color) {
