@@ -1,5 +1,6 @@
 extern crate sdl2;
 
+use std::cmp::{min,max};
 use std::f64::consts::TAU;
 use sdl2::rect::{Point, FPoint};
 use sdl2::render::WindowCanvas;
@@ -124,6 +125,7 @@ fn main() {
         for event in event_pump.poll_iter() {
             match event {
                 Event::Quit {..} => break 'main,
+                Event::KeyDown { keycode: Some(Keycode::Q) | Some(Keycode::ESCAPE), .. } => break 'main,
                 Event::KeyDown { keycode: Some(k), .. } => on_key_down(&mut player.movement, k),
                 Event::KeyUp   { keycode: Some(k), .. } => on_key_up  (&mut player.movement, k),
                 _ => {}
@@ -227,10 +229,13 @@ fn draw_wall(canvas: &mut WindowCanvas, wall: Wall, c: Color) {
         None    => return
     };
 
+    // "line in view" is referring to being in front of the player, but we might
+    // as well take this opportunity to also make it mean "and also in the
+    // viewport" by truncating the screen X values to 0 and SCREEN_WIDTH
     let bot_point_1 = Point3::new( line_in_view[0].x, wall.floor, line_in_view[0].y);
     let bot_point_2 = Point3::new( line_in_view[1].x, wall.floor, line_in_view[1].y);
-    let screen_bot_1 = point3_to_point2( &bot_point_1 );
-    let screen_bot_2 = point3_to_point2( &bot_point_2 );
+    let screen_bot_1 = truncate_to_view(&point3_to_point2( &bot_point_1 ));
+    let screen_bot_2 = truncate_to_view(&point3_to_point2( &bot_point_2 ));
 
     // Another way to do this would be to compute the Y offset of the wall
     // height inside the loop at each X value, since we don't ever actually
@@ -250,7 +255,6 @@ fn draw_wall(canvas: &mut WindowCanvas, wall: Wall, c: Color) {
 
     // Actually we only use screen_top_2 once as well, to get a delta Y, so
     // maybe we can get away with just creating two Y values
-
     for xval in screen_bot_1.x .. screen_bot_2.x {
         // xval - wall.line[0].x / dx normalises xval so needs to be a float
         // multiply that by dy and we get a normalised y value proportional to x
@@ -329,6 +333,13 @@ fn truncate_z(line: &[Point;2]) -> Option<[Point;2]> {
     }
 
     return Some(new_line);
+}
+
+fn truncate_to_view(p: &Point) -> Point {
+    Point::new(
+        max(0, min(SCREEN_WIDTH as i32, p.x)),
+        p.y
+    )
 }
 
 fn draw_pixel(canvas: &mut WindowCanvas, p: Point, c: Color) {
